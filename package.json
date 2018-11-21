@@ -1,0 +1,12 @@
+{
+  "name": "repo-depot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "repo-depot": "node ./index.js"
+  },
+  "dependencies": {
+    "commander": "^2.19.0"
+  }
+}
