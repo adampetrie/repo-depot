@@ -4,29 +4,29 @@ const Listr = require("listr");
 const execa = require("execa");
 
 const repos = [
-  {
-    remote: "git@github.com:SMARTeacher/prodigy-api.git",
-    name: "api"
-  },
-  {
-    remote: "git@github.com:SMARTeacher/prodigy-graphql.git",
-    name: "graphql"
-  }
+  "git@github.com:SMARTeacher/prodigy-api.git",
+  "git@github.com:SMARTeacher/prodigy-graphql.git"
 ];
 
-function repoTasks(repo) {
+const repoName = repo => {
+  return repo.split("/")[1].split(".")[0];
+};
+
+function repoTasks(repo, name) {
   return new Listr([
     {
       title: "Cloning Repo...",
       task: async ctx => {
-        await execa("node", ["./clone.js", repo.remote, repo.name]);
+        await execa("git", ["clone", repo], {
+          cwd: `${homeDir}/prodigy`
+        });
       }
     },
     {
       title: "Installing dependencies...",
       task: async () => {
         await execa("yarn", ["install"], {
-          cwd: `${homeDir}/prodigy/${repo.name}`
+          cwd: `${homeDir}/prodigy/${name}`
         });
       }
     }
@@ -35,10 +35,11 @@ function repoTasks(repo) {
 
 function installRepos() {
   const tasks = repos.map(repo => {
+    const name = repoName(repo);
     return {
-      title: repo.name,
+      title: name,
       task: () => {
-        return repoTasks(repo);
+        return repoTasks(repo, name);
       }
     };
   });
