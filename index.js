@@ -5,58 +5,75 @@ const { spawn } = require("child_process");
 
 const ora = require("ora");
 
-fs.mkdir(`${homeDir}/prodigy`, err => {
-  if (!err) {
-    console.log("prodigy dir created");
-  } else {
-    console.log(err);
-  }
+const root = `${homeDir}/prodigy`;
+if (!fs.existsSync(root)) {
+  fs.mkdirSync(root);
+  console.log("Creating prodigy directory...");
+}
 
-  fs.mkdir(`${homeDir}/prodigy/repos`, err => {
-    if (!err) {
-      console.log("repos dir created");
-    } else {
-      console.log(err);
+const reposDir = `${homeDir}/prodigy/repos`;
+if (!fs.existsSync(reposDir)) {
+  fs.mkdirSync(reposDir);
+  console.log("Creating prodigy/repos directory...");
+}
+
+const cloneOptions = {};
+cloneOptions.fetchOpts = {
+  callbacks: {
+    certificateCheck: function() {
+      return 1;
+    },
+    credentials: function(url, userName) {
+      return NodeGit.Cred.sshKeyFromAgent(userName);
     }
+  }
+};
 
-    const cloneURL = "git@github.com:SMARTeacher/prodigy-api.git";
-    const localPath = `${homeDir}/prodigy/repos/api`;
-    const cloneOptions = {};
-    cloneOptions.fetchOpts = {
-      callbacks: {
-        certificateCheck: function() {
-          return 1;
-        },
-        credentials: function(url, userName) {
-          return NodeGit.Cred.sshKeyFromAgent(userName);
-        }
-      }
-    };
+function cloneRepo(repo) {
+  const { remote, name } = repo;
+  const localPath = `${homeDir}/prodigy/repos/${name}`;
+  const spinner = ora(`Cloning ${name}...`).start();
 
-    const spinner = ora("Cloning repo").start();
+  NodeGit.Clone(remote, localPath, cloneOptions)
+    .then(result => {
+      spinner.succeed();
+      installDeps(repo);
+    })
+    .catch(err => {
+      console.log(err);
+      spinner.stop();
+    });
+}
 
-    NodeGit.Clone(cloneURL, localPath, cloneOptions)
-      .then(result => {
-        spinner.succeed();
-
-        const spinner2 = ora("Installing Dependencies").start();
-        const child = spawn("yarn install", {
-          shell: true,
-          cwd: `${homeDir}/prodigy/repos/api`
-        });
-
-        child.on("error", err => {
-          console.log(err);
-          console.log("Done");
-        });
-
-        child.on("exit", err => {
-          spinner2.succeed();
-        });
-      })
-      .catch(err => {
-        console.log(err);
-        spinner.stop();
-      });
+function installDeps(repo) {
+  const { name } = repo;
+  const spinner2 = ora(`Installing ${name} dependencies...`).start();
+  const child = spawn("yarn install", {
+    shell: true,
+    cwd: `${homeDir}/prodigy/repos/${name}`
   });
+
+  child.on("error", err => {
+    console.log(err);
+    console.log("Done");
+  });
+
+  child.on("exit", err => {
+    spinner2.succeed();
+  });
+}
+
+const repos = [
+  {
+    remote: "git@github.com:SMARTeacher/prodigy-api.git",
+    name: "api"
+  },
+  {
+    remote: "git@github.com:SMARTeacher/prodigy-graphql.git",
+    name: "graphql"
+  }
+];
+
+repos.forEach(repo => {
+  cloneRepo(repo);
 });
